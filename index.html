@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineMatch — Найди свой фильм</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --accent: #e8c97e;
+    --accent2: #c4a45a;
+    --text: #f0ede8;
+    --text2: rgba(240,237,232,0.55);
+    --text3: rgba(240,237,232,0.3);
+    --red: #e05a4e;
+    --green: #4ec98a;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -30vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80vw;
+    height: 60vh;
+    background: radial-gradient(ellipse, rgba(232,201,126,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    padding: 64px 0 48px;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .logo-label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 0.5px solid rgba(232,201,126,0.3);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(38px, 7vw, 72px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    margin-top: 14px;
+    font-size: 15px;
+    color: var(--text2);
+    font-weight: 300;
+  }
+
+  /* MAIN CARD */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.2s; }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 20px;
+  }
+
+  /* GENRES */
+  .genres-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .genre-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 40px;
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .genre-chip:hover {
+    border-color: rgba(232,201,126,0.4);
+    color: var(--text);
+    background: rgba(232,201,126,0.05);
+  }
+
+  .genre-chip.active {
+    background: rgba(232,201,126,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .genre-icon { font-size: 15px; }
+
+  /* DIVIDER */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 28px 0;
+    color: var(--text3);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 0.5px;
+    background: var(--border);
+  }
+
+  /* TEXTAREA */
+  .search-area {
+    position: relative;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea::placeholder { color: var(--text3); }
+  textarea:focus { border-color: rgba(232,201,126,0.5); }
+
+  /* BUTTONS */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+
+  .btn:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0a0a0f;
+    font-weight: 500;
+    padding: 11px 28px;
+  }
+
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* RESULT */
+  #result { animation: fadeUp 0.5s ease both; }
+
+  .result-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .result-header {
+    display: flex;
+    gap: 0;
+  }
+
+  .result-poster {
+    width: 140px;
+    min-height: 200px;
+    flex-shrink: 0;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    border-right: 0.5px solid var(--border);
+  }
+
+  .result-info {
+    padding: 28px;
+    flex: 1;
+  }
+
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .result-orig {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 14px;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .meta-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text2);
+    border: 0.5px solid var(--border);
+  }
+
+  .meta-rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .stars { letter-spacing: 1px; }
+
+  .result-body { padding: 0 28px 28px; }
+
+  .result-desc {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+
+  .why-box {
+    background: rgba(78,201,138,0.08);
+    border: 0.5px solid rgba(78,201,138,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #4ec98a;
+    line-height: 1.5;
+  }
+
+  .why-box::before { content: '✦ '; }
+
+  /* MOOD SUGGESTIONS */
+  .mood-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .mood-btn {
+    padding: 7px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mood-btn:hover {
+    border-color: rgba(232,201,126,0.4);
+    color: var(--accent);
+  }
+
+  /* LOADING */
+  .loading-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .loader {
+    display: inline-flex;
+    gap: 5px;
+    margin-bottom: 12px;
+  }
+
+  .loader span {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.2s infinite;
+  }
+  .loader span:nth-child(2) { animation-delay: 0.2s; }
+  .loader span:nth-child(3) { animation-delay: 0.4s; }
+
+  /* HISTORY */
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item:hover .history-title { color: var(--accent); }
+
+  .history-title {
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .history-meta {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .history-arrow {
+    font-size: 16px;
+    color: var(--text3);
+  }
+
+  /* EMPTY */
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text3);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* ANIMATIONS */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .card { padding: 24px 20px; }
+    .result-poster { width: 100px; font-size: 36px; }
+    .result-info { padding: 20px; }
+    .result-title { font-size: 20px; }
+    .result-body { padding: 0 20px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo-label">🎬 CineMatch AI</div>
+    <h1>Найди <em>свой</em><br>идеальный фильм</h1>
+    <p class="subtitle">Выбери жанры, опиши настроение — ИИ подберёт то, что нужно</p>
+  </header>
+
+  <!-- GENRES -->
+  <div class="card">
+    <p class="section-title">Жанры — выбирай несколько</p>
+    <div class="genres-grid" id="genres">
+      <span class="genre-chip" data-genre="Боевик"><span class="genre-icon">⚡</span>Боевик</span>
+      <span class="genre-chip" data-genre="Комедия"><span class="genre-icon">😄</span>Комедия</span>
+      <span class="genre-chip" data-genre="Ужасы"><span class="genre-icon">👻</span>Ужасы</span>
+      <span class="genre-chip" data-genre="Мелодрама"><span class="genre-icon">❤️</span>Мелодрама</span>
+      <span class="genre-chip" data-genre="Фантастика"><span class="genre-icon">🚀</span>Фантастика</span>
+      <span class="genre-chip" data-genre="Анимация"><span class="genre-icon">🎨</span>Анимация</span>
+      <span class="genre-chip" data-genre="Триллер"><span class="genre-icon">🔪</span>Триллер</span>
+      <span class="genre-chip" data-genre="Документальный"><span class="genre-icon">🎥</span>Документальный</span>
+      <span class="genre-chip" data-genre="Криминал"><span class="genre-icon">🕵️</span>Криминал</span>
+      <span class="genre-chip" data-genre="Фэнтези"><span class="genre-icon">🧙</span>Фэнтези</span>
+      <span class="genre-chip" data-genre="Драма"><span class="genre-icon">🎭</span>Драма</span>
+      <span class="genre-chip" data-genre="Приключения"><span class="genre-icon">🗺️</span>Приключения</span>
+      <span class="genre-chip" data-genre="Биография"><span class="genre-icon">📖</span>Биография</span>
+      <span class="genre-chip" data-genre="Мистика"><span class="genre-icon">🌫️</span>Мистика</span>
+      <span class="genre-chip" data-genre="Семейный"><span class="genre-icon">👨‍👩‍👧</span>Семейный</span>
+      <span class="genre-chip" data-genre="Спортивный"><span class="genre-icon">🏆</span>Спортивный</span>
+    </div>
+
+    <div class="divider">или опиши</div>
+
+    <div class="search-area">
+      <textarea id="desc" rows="4" placeholder="Например:&#10;«хочу что-то смешное на вечер с друзьями»&#10;«фильм где главный герой теряет память, не помню названия»&#10;«что-то вроде Интерстеллара»"></textarea>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <p style="font-size: 11px; color: var(--text3); margin-bottom: 8px; letter-spacing: 0.1em; text-transform: uppercase;">Быстрое настроение</p>
+      <div class="mood-row">
+        <button class="mood-btn" onclick="setMood('хочу поплакать, что-то трогательное')">😭 Поплакать</button>
+        <button class="mood-btn" onclick="setMood('хочу что-то страшное, адреналин')">😱 Страшное</button>
+        <button class="mood-btn" onclick="setMood('хочу выключить мозг и просто смотреть')">🍿 Расслабиться</button>
+        <button class="mood-btn" onclick="setMood('хочу что-то вдохновляющее и мотивирующее')">💪 Вдохновение</button>
+        <button class="mood-btn" onclick="setMood('хочу что-то с неожиданной концовкой')">🔄 Неожиданная концовка</button>
+        <button class="mood-btn" onclick="setMood('хочу смотреть с детьми, для всей семьи')">👨‍👩‍👧 С детьми</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="clearAll()">↺ Сбросить</button>
+      <button class="btn-primary" id="findBtn" onclick="findMovie()">Найти фильм →</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result"></div>
+
+  <!-- HISTORY -->
+  <div class="card" id="historyCard" style="display:none;">
+    <p class="section-title">История поиска</p>
+    <div id="historyList"></div>
+  </div>
+
+</div>
+
+<script>
+const GENRES_EL = document.getElementById('genres');
+const DESC_EL = document.getElementById('desc');
+const RESULT_EL = document.getElementById('result');
+const FIND_BTN = document.getElementById('findBtn');
+let history = JSON.parse(localStorage.getItem('cm_history') || '[]');
+
+// Genre chips
+GENRES_EL.querySelectorAll('.genre-chip').forEach(c =>
+  c.addEventListener('click', () => c.classList.toggle('active'))
+);
+
+function setMood(text) {
+  DESC_EL.value = text;
+  DESC_EL.focus();
+}
+
+function clearAll() {
+  GENRES_EL.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
+  DESC_EL.value = '';
+  RESULT_EL.innerHTML = '';
+}
+
+function getStars(rating) {
+  const full = Math.round(rating / 2);
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
+function getPoster(genres) {
+  const map = {
+    'Боевик': '⚡', 'Комедия': '😄', 'Ужасы': '👻', 'Мелодрама': '❤️',
+    'Фантастика': '🚀', 'Анимация': '🎨', 'Триллер': '🔪', 'Документальный': '🎥',
+    'Криминал': '🕵️', 'Фэнтези': '🧙', 'Драма': '🎭', 'Приключения': '🗺️',
+    'Биография': '📖', 'Мистика': '🌫️', 'Семейный': '👨‍👩‍👧', 'Спортивный': '🏆'
+  };
+  for (const g of genres) {
+    if (map[g]) return map[g];
+  }
+  return '🎬';
+}
+
+function saveHistory(movie) {
+  history.unshift({ title: movie.title, year: movie.year, genres: movie.genres, ts: Date.now() });
+  if (history.length > 10) history = history.slice(0, 10);
+  localStorage.setItem('cm_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!history.length) return;
+  const card = document.getElementById('historyCard');
+  const list = document.getElementById('historyList');
+  card.style.display = 'block';
+  list.innerHTML = history.map((h, i) => `
+    <div class="history-item" onclick="searchFromHistory(${i})">
+      <div>
+        <div class="history-title">${h.title} (${h.year})</div>
+        <div class="history-meta">${(h.genres || []).join(', ')}</div>
+      </div>
+      <span class="history-arrow">›</span>
+    </div>
+  `).join('');
+}
+
+function searchFromHistory(i) {
+  DESC_EL.value = `Покажи мне фильм похожий на "${history[i].title}"`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function findMovie() {
+  const selected = [...GENRES_EL.querySelectorAll('.genre-chip.active')].map(c => c.dataset.genre);
+  const desc = DESC_EL.value.trim();
+
+  if (!selected.length && !desc) {
+    RESULT_EL.innerHTML = `<div class="result-card"><div class="empty-state"><div class="empty-icon">🎯</div>Выбери хотя бы один жанр<br>или напиши что хочешь посмотреть</div></div>`;
+    return;
+  }
+
+  FIND_BTN.disabled = true;
+  RESULT_EL.innerHTML = `
+    <div class="loading-card">
+      <div class="loader"><span></span><span></span><span></span></div>
+      <div>Подбираю идеальный фильм для тебя...</div>
+    </div>`;
+
+  let prompt = 'Порекомендуй один конкретный фильм';
+  if (selected.length) prompt += ` в жанре: ${selected.join(', ')}`;
+  if (desc) prompt += `. Запрос пользователя: "${desc}"`;
+  prompt += `\n\nОтветь СТРОГО в JSON без markdown и без \`\`\`, вот структура:
+{
+  "title": "Название на русском",
+  "original_title": "Оригинальное название",
+  "year": 2019,
+  "genres": ["Жанр1", "Жанр2"],
+  "rating": 8.3,
+  "duration": "2 ч 15 мин",
+  "director": "Имя режиссёра",
+  "cast": "Главные актёры через запятую",
+  "description": "Краткое описание сюжета (2-3 предложения)",
+  "why": "Почему именно этот фильм подходит под запрос (1 предложение)",
+  "similar": ["Похожий фильм 1", "Похожий фильм 2", "Похожий фильм 3"]
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content.map(i => i.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const movie = JSON.parse(clean);
+
+    saveHistory(movie);
+
+    const genreBadges = (movie.genres || []).map(g =>
+      `<span class="meta-badge">${g}</span>`
+    ).join('');
+
+    const similarBtns = (movie.similar || []).map(s =>
+      `<button class="mood-btn" onclick="searchSimilar('${s.replace(/'/g,"\\'")}')">🎬 ${s}</button>`
+    ).join('');
+
+    RESULT_EL.innerHTML = `
+      <div class="result-card">
+        <div class="result-header">
+          <div class="result-poster">${getPoster(movie.genres || [])}</div>
+          <div class="result-info">
+            <div class="result-title">${movie.title}</div>
+            <div class="result-orig">${movie.original_title} · ${movie.year} · ${movie.duration}</div>
+            <div class="meta-row">
+              ${genreBadges}
+              <div class="meta-rating">
+                <span class="stars">${getStars(movie.rating)}</span>
+                <span>${movie.rating}/10</span>
+              </div>
+            </div>
+            <div style="font-size:13px; color:var(--text2);">
+              <span style="color:var(--text3);">Режиссёр:</span> ${movie.director}
+            </div>
+            <div style="font-size:13px; color:var(--text2); margin-top:4px;">
+              <span style="color:var(--text3);">В ролях:</span> ${movie.cast}
+            </div>
+          </div>
+        </div>
+        <div class="result-body">
+          <p class="result-desc">${movie.description}</p>
+          <div class="why-box">${movie.why}</div>
+          ${movie.similar && movie.similar.length ? `
+            <div style="margin-top:18px;">
+              <p style="font-size:11px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;">Похожие фильмы</p>
+              <div class="mood-row">${similarBtns}</div>
+            </div>` : ''}
+        </div>
+      </div>`;
+
+  } catch(e) {
+    RESULT_EL.innerHTML = `<div class="result-card"><div class="empty-state"><div class="empty-icon">⚠️</div>Что-то пошло не так.<br>Попробуй ещё раз.</div></div>`;
+  }
+
+  FIND_BTN.disabled = false;
+}
+
+function searchSimilar(title) {
+  DESC_EL.value = `Хочу посмотреть "${title}"`;
+  GENRES_EL.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  findMovie();
+}
+
+// Init history
+renderHistory();
+</script>
+</body>
+</html>
